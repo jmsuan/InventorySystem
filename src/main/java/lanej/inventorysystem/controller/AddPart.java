@@ -2,6 +2,7 @@ package lanej.inventorysystem.controller;
 
 import javafx.event.ActionEvent;
 import javafx.fxml.Initializable;
+import javafx.scene.control.Label;
 import javafx.scene.control.RadioButton;
 import javafx.scene.control.TextField;
 import javafx.scene.control.ToggleGroup;
@@ -21,6 +22,7 @@ public class AddPart implements Initializable {
     public TextField inventoryField;
     public TextField priceField;
     public TextField sourceField;
+    public Label sourceLabel;
 
     @Override
     public void initialize(URL url, ResourceBundle resourceBundle) {
@@ -33,5 +35,13 @@ public class AddPart implements Initializable {
 
     public void saveButtonClicked(ActionEvent event) {
 
+    }
+
+    public void inHouseClicked() {
+        sourceLabel.setText("Machine ID:");
+    }
+
+    public void outsourcedClicked() {
+        sourceLabel.setText("Company:");
     }
 }
