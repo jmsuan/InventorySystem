@@ -7,4 +7,5 @@ module lanej.inventorysystem {
     exports lanej.inventorysystem;
     opens lanej.inventorysystem.controller to javafx.fxml;
     exports lanej.inventorysystem.controller;
+    exports lanej.inventorysystem.model;
 }
