@@ -20,11 +20,21 @@ public class Inventory {
     }
 
     public static Part lookupPart(int partId) {
-        return allParts.get(partId);
+        for (Part currentPart : allParts) {
+            if (currentPart.getId() == partId) {
+                return currentPart;
+            }
+        }
+        return null; // Item not found
     }
 
     public static Product lookupProduct(int productId) {
-        return allProducts.get(productId);
+        for (Product currentProduct : allProducts) {
+            if (currentProduct.getId() == productId) {
+                return currentProduct;
+            }
+        }
+        return null; // Item not found
     }
 
     public static void updatePart(int index, Part selectedPart) {

@@ -13,14 +13,13 @@ import lanej.inventorysystem.model.InHouse;
 import lanej.inventorysystem.model.Inventory;
 import lanej.inventorysystem.model.Outsourced;
 import lanej.inventorysystem.model.Product;
+import lanej.inventorysystem.model.Part;
 
 import java.io.*;
-import java.lang.reflect.Array;
-import java.net.URISyntaxException;
 import java.util.*;
 
 public class InventoryApplication extends Application {
-    private static String customResourcePath;
+    private static String dataFileName = "output.csv";
     public enum ScreenType {
         MAIN_SCREEN,
         ADD_PART,
@@ -28,6 +27,8 @@ public class InventoryApplication extends Application {
         ADD_PRODUCT,
         MODIFY_PRODUCT
     }
+    public static Part partToModify;
+    public static Product productToModify;
 
     /*Running into an issue here. Although I believe I did everything right, I'm getting this error:
     *   "Exception in thread "JavaFX Application Thread"
@@ -104,14 +105,23 @@ public class InventoryApplication extends Application {
 
     public static void terminate(ActionEvent event) {
         Stage stage = (Stage) ((Node)event.getSource()).getScene().getWindow();
+        try {
+            System.out.println("\nAttempting to write to file!");
+            writeFile();
+        }
+        catch (Exception e) {
+            Alert alert = new Alert(AlertType.ERROR,
+                    "Error when attempting to write to " + dataFileName + " file!\n\nMessage: \n" +
+                            e.getMessage());
+            alert.showAndWait();
+        }
         stage.close();
     }
 
     public static List<List<String>> parseCsv(String resourceFilePath) {
-        // Using generic List implementable, so we can use Arrays.asList to separate the values on each line
         List<List<String>> foundRecords = new ArrayList<>();
         try {
-            File csvFile = new File(Objects.requireNonNull(InventoryApplication.class.getResource(resourceFilePath)).toURI());
+            File csvFile = new File(resourceFilePath);
             BufferedReader br = new BufferedReader(new FileReader(csvFile));
             String currLine;
             while ((currLine = br.readLine()) != null) {
@@ -122,8 +132,11 @@ public class InventoryApplication extends Application {
                 String[] values = currLine.split(",");
                 foundRecords.add(Arrays.asList(values));
             }
+            br.close();
         }
         catch (NullPointerException | FileNotFoundException e) {
+            System.err.println("Error when attempting to find file: ");
+            e.printStackTrace();
             Alert alert = new Alert(AlertType.ERROR,
                     "Error when attempting to find " + resourceFilePath + " file!\n" +
                     "Make sure the file is in the directory: src/main/java/lanej/resources/inventorysystem/" +
@@ -131,26 +144,107 @@ public class InventoryApplication extends Application {
             alert.showAndWait();
         }
         catch (IOException e) {
+            System.err.println("Error when attempting to read file: ");
+            e.printStackTrace();
             Alert alert = new Alert(AlertType.ERROR,
                     "Error when attempting to read " + resourceFilePath + "!\n\nMessage: \n" + e.getMessage());
-            alert.showAndWait();
-        }
-        catch (URISyntaxException e) {
-            Alert alert = new Alert(AlertType.ERROR,
-                    "Error when parsing URI to " + resourceFilePath + "!\n\nMessage: \n" + e.getMessage());
             alert.showAndWait();
         }
         return foundRecords;
     }
 
-    public static void writeFile() throws IOException {
-        // TODO: implement file writing method
+    public static void writeFile() throws Exception {
+        List<Part> allParts = Inventory.getAllParts();
+        List<Product> allProducts = Inventory.getAllProducts();
+        List<String> outputLines = new LinkedList<>();
+
+        // Only valid header with this application
+        outputLines.add("ProductOrPart,ID,Name,Price,Stock,Min,Max,MachineID,CompanyName,AssociatedParts");
+
+        // Add all Parts to outputLines
+        for (Part currentPart : allParts) {
+            int partId = currentPart.getId();
+            String partType = Objects.requireNonNull(Inventory.lookupPart(partId)).getClass().getSimpleName();
+            partType = partType.substring(partType.lastIndexOf(".") + 1);
+            String currentLine = "Part," +
+                    partId + "," +
+                    currentPart.getName() + "," +
+                    currentPart.getPrice() + "," +
+                    currentPart.getStock() + "," +
+                    currentPart.getMin() + "," +
+                    currentPart.getMax() + ",";
+            if (partType.equals("InHouse")) {
+                InHouse inHousePart = (InHouse)Inventory.lookupPart(partId);
+                assert inHousePart != null;
+                currentLine += inHousePart.getMachineId() + ",,";
+            }
+            if (partType.equals("Outsourced")) {
+                Outsourced outsourcedPart = (Outsourced)Inventory.lookupPart(partId);
+                assert outsourcedPart != null;
+                currentLine += "," + outsourcedPart.getCompanyName() + ",";
+            }
+            outputLines.add(currentLine);
+        }
+
+        // Add all Products to outputLines
+        for (Product currentProduct : allProducts) {
+            List<Part> associatedParts = new LinkedList<>(currentProduct.getAllAssociatedParts());
+            StringBuilder associatedPartsString = new StringBuilder();
+            if (associatedParts.size() > 0) {
+                for (Part part : associatedParts) {
+                    associatedPartsString.append(".").append(part.getId()); // Using periods to separate Part IDs
+                }
+                associatedPartsString.deleteCharAt(0); // Remove leading period
+            }
+            else { // Product not associated with any parts
+                associatedPartsString.append("0");
+            }
+            String currentLine = "Product," +
+                    currentProduct.getId() + "," +
+                    currentProduct.getName() + "," +
+                    currentProduct.getPrice() + "," +
+                    currentProduct.getStock() + "," +
+                    currentProduct.getMin() + "," +
+                    currentProduct.getMax() + ",,," +
+                    associatedPartsString;
+            outputLines.add(currentLine);
+        }
+
+        // Preview output in console
+        System.out.println("Will be output to " + dataFileName + ":");
+        for (String line : outputLines) {
+            System.out.println(line);
+        }
+
+        // Write to the file that is specified
+        FileOutputStream outStream = null;
+        try {
+            String path = dataFileName;
+            outStream = new FileOutputStream(path);
+            PrintWriter outputStream = new PrintWriter(outStream);
+            for (String line : outputLines) {
+                outputStream.println(line);
+            }
+            outputStream.close();
+        } catch (IOException e) {
+            System.err.println("Error finding file to write to:");
+            e.printStackTrace();
+            throw new IOException("Error finding file to write to. \n" + e.getMessage());
+        } catch (Exception e) {
+            System.err.println("Unexpected error when attempting to write to file:");
+            e.printStackTrace();
+            throw new Exception("Unexpected error when attempting to write to file! \n" + e.getMessage());
+        } finally {
+            if (outStream != null) {
+                outStream.close();
+            }
+        }
     }
 
     /*
     * Ran into an issue with this code. When making the sample data, I used Microsoft Excel to format the csv file.
-    * When attempting to test for equality with the List<String> validHeaders, it would never think that they were
-    * equal, even though I copy and pasted the content into the Strings that were added to validHeaders.
+    * When attempting to test the data for equality with List<String> validHeaders, it would never return the expected
+    * equality value, even though I copy and pasted the content into the Strings that were added to validHeaders.
     *
     * I first tried to use different comparison algorithms, printing the equality (boolean) value to the console.
     * They all returned the same result, displaying something along the lines of:
@@ -162,13 +256,13 @@ public class InventoryApplication extends Application {
     * exposed that the SECOND element was indeed equal, just not the first. This makes sense with what I found to be
     * the root causing issue.
     *
-    * As evident here, the last word of the print statement above contains an "illegal character" according to
+    * As evident here, the last word of the print statement above contains an "illegal character". This is according to
     * the IDE I'm using (it was not seen visually in the console output). After a lot of troubleshooting and
     * brainstorming, I discovered that it was indeed importing the data from the .csv file correctly, however,
     * that first character is header data from MS Excel. It doesn't match UTF-8 encoding, so filtering the data
-    * in parseCsv() to only include UTF-8 Strings fixed this issue.
+    * in parseCsv() to only include the UTF-8 character set fixed this issue.
     * */
-    public void importDataStrings(List<List<String>> dataTable) {
+    public static void importDataStrings(List<List<String>> dataTable) {
         List<String> dataHeader = dataTable.get(0);
         List<String> validDataHeader = new ArrayList<>(List.of(new String[]{
                 "ProductOrPart",
@@ -217,8 +311,8 @@ public class InventoryApplication extends Application {
         System.out.println("Length: " + dataTable.get(0).size() + " \t" + dataTable.get(0));
         // Remove header row to make importing the data easier (using for each)
         dataTable.remove(0);
-        for (int i = 0; i < dataTable.size(); ++i) {
-            System.out.println("Length: " + dataTable.get(i).size() + " \t" + dataTable.get(i));
+        for (List<String> strings : dataTable) {
+            System.out.println("Length: " + strings.size() + " \t" + strings);
         }
         System.out.println();
 
@@ -257,6 +351,7 @@ public class InventoryApplication extends Application {
         boolean partIdsValid = true;
         Collections.sort(partIds);
         for (int i = 0; i < partIds.size(); ++i) {
+            // Check if sorted partIds are unique and step starting at 1
             if (partIds.get(i) != (i + 1)) {
                 partIdsValid = false;
                 break;
@@ -265,6 +360,7 @@ public class InventoryApplication extends Application {
         boolean productIdsValid = true;
         Collections.sort(productIds);
         for (int i = 0; i < productIds.size(); ++i) {
+            // Check if sorted productIds are unique and step starting at 1
             if (productIds.get(i) != (i + 1)) {
                 productIdsValid = false;
                 break;
@@ -318,13 +414,49 @@ public class InventoryApplication extends Application {
         }
     }
 
+    public static int nextPartId() {
+        List<Part> partsList = Inventory.getAllParts();
+        List<Integer> idsUsed = new LinkedList<>();
+
+        // Get list of all currently used Part IDs
+        for (Part currentPart : partsList) {
+            idsUsed.add(currentPart.getId());
+        }
+
+        // Find first available ID int
+        int testId = 1;
+        while (true) {
+            if (!idsUsed.contains(testId)) {
+                return testId;
+            }
+            ++testId;
+        }
+    }
+
+    public static int nextProductId() {
+        List<Product> productsList = Inventory.getAllProducts();
+        List<Integer> idsUsed = new LinkedList<>();
+
+        // Get list of all currently used Part IDs
+        for (Product currentProduct : productsList) {
+            idsUsed.add(currentProduct.getId());
+        }
+
+        // Find first available ID int
+        int testId = 1;
+        while (true) {
+            if (!idsUsed.contains(testId)) {
+                return testId;
+            }
+            ++testId;
+        }
+    }
+
     @Override
     public void start(Stage stage) throws IOException {
         // Import inventory data from previous usage
         List<List<String>> fileStringData;
-        fileStringData = (customResourcePath != null) ?
-                parseCsv(customResourcePath) :
-                parseCsv("inventory-data.csv");
+        fileStringData = parseCsv(dataFileName);
 
         // Add all items from .csv to Inventory
         importDataStrings(fileStringData);
@@ -336,12 +468,24 @@ public class InventoryApplication extends Application {
         stage.setScene(scene);
         stage.setMinHeight(300.0);
         stage.setMinWidth(640.0);
+        stage.setOnCloseRequest(closeEvent -> {
+            try {
+                System.out.println("\nAttempting to write to file!");
+                writeFile();
+            }
+            catch (Exception e) {
+                Alert alert = new Alert(AlertType.ERROR,
+                        "Error when attempting to write to " + dataFileName + " file!\n\nMessage: \n" +
+                                e.getMessage());
+                alert.showAndWait();
+            }
+        });
         stage.show();
     }
 
     public static void main(String[] args) {
         if (args.length > 0) {
-            customResourcePath = args[0];
+            dataFileName = args[0];
         }
         launch();
     }

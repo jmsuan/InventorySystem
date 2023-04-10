@@ -7,6 +7,9 @@ import javafx.scene.control.RadioButton;
 import javafx.scene.control.TextField;
 import javafx.scene.control.ToggleGroup;
 import lanej.inventorysystem.InventoryApplication;
+import lanej.inventorysystem.model.InHouse;
+import lanej.inventorysystem.model.Inventory;
+import lanej.inventorysystem.model.Outsourced;
 
 import java.net.URL;
 import java.util.ResourceBundle;
@@ -34,7 +37,22 @@ public class AddPart implements Initializable {
     }
 
     public void saveButtonClicked(ActionEvent event) {
-
+        String name = nameField.getText();
+        double price = Double.parseDouble(priceField.getText());
+        int stock = Integer.parseInt(inventoryField.getText());
+        int min = Integer.parseInt(minField.getText());
+        int max = Integer.parseInt(maxField.getText());
+        if (inHouseRadio.isSelected()) {
+            int machineId = Integer.parseInt(sourceField.getText());
+            InHouse newPart = new InHouse(InventoryApplication.nextPartId(), name, price, stock, min, max, machineId);
+            Inventory.addPart(newPart);
+        }
+        else if (outsourcedRadio.isSelected()) {
+            String companyName = sourceField.getText();
+            Outsourced newPart = new Outsourced(InventoryApplication.nextPartId(), name, price, stock, min, max, companyName);
+            Inventory.addPart(newPart);
+        }
+        InventoryApplication.toScreen(event, InventoryApplication.ScreenType.MAIN_SCREEN);
     }
 
     public void inHouseClicked() {
