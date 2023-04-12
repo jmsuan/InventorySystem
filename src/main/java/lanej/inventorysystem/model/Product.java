@@ -6,8 +6,8 @@ import javafx.collections.FXCollections;
 import java.util.LinkedList;
 
 public class Product {
-    private ObservableList<Part> associatedParts;   // Using ObservableList as it implements
-                                                    // listener methods for changes within the GUI.
+    private final ObservableList<Part> associatedParts;   // Using ObservableList as it implements
+                                                          // listener methods for changes within the GUI.
     private int id;         // Part number identifier
     private String name;    // Human readable part identifier
     private double price;   // Cost of the part
@@ -17,6 +17,7 @@ public class Product {
 
     // Default constructor
     public Product(int id, String name, double price, int stock, int min, int max) {
+        assert id > 0;
         this.id = id;
         this.name = name;
         this.price = price;
@@ -30,6 +31,7 @@ public class Product {
 
     // Setter methods
     public void setId(int id) {
+        assert id > 0;
         this.id = id;
     }
     public void setName(String name) {

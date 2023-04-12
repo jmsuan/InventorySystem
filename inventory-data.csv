@@ -10,6 +10,10 @@ Part,8,Flash Storage,200.0,84,20,400,1002,,
 Part,9,Camera,50.0,45,20,400,1005,,
 Part,10,Charger,20.0,260,20,600,,Samsung,
 Part,11,Earphones,30.0,240,20,600,,Sennheiser,
-Part,12,Mouse,35.4,15,0,25,,Alienware,
+Part,12,Mouse,45.24,15,0,25,,Alienware,
+Part,13,Tower Chassis,36.65,25,1,25,105,,
 Product,1,Laptop,1399.95,54,0,200,,,1.2.3.4.5.6.7
 Product,2,Smartphone,979.95,1245,20,1500,,,1.2.4.7.8.9.10.11
+Product,3,NAS,5499.0,20,0,50,,,1.2.3.5.8
+Product,4,Handheld Console,599.99,5,0,150,,,1.2.4.6.7.8.10
+Product,5,High Performance Desktop Computer,2449.99,3,0,10,,,1.2.5.8.11.12.13

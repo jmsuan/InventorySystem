@@ -9,11 +9,10 @@ public class InHouse extends Part {
     }
 
     public void setMachineId(int id) {
-        this.machineId = machineId;
+        this.machineId = id;
     }
 
     public int getMachineId() {
         return machineId;
     }
-
 }

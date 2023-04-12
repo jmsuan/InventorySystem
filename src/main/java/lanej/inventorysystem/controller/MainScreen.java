@@ -8,7 +8,6 @@ import javafx.scene.control.*;
 import javafx.scene.control.Alert.AlertType;
 import javafx.scene.control.cell.PropertyValueFactory;
 import lanej.inventorysystem.InventoryApplication;
-import lanej.inventorysystem.model.InHouse;
 import lanej.inventorysystem.model.Inventory;
 import lanej.inventorysystem.model.Part;
 import lanej.inventorysystem.model.Product;
@@ -34,12 +33,12 @@ public class MainScreen implements Initializable {
     public TableColumn productMinColumn;
     public TextField partSearchField;
     public TextField productSearchField;
+    private FilteredList<Part> partFilteredList;
+    private FilteredList<Product> productFilteredList;
 
     @Override
     public void initialize(URL url, ResourceBundle resourceBundle) {
         System.out.println("MainScreen Controller Initialized");
-        FilteredList<Part> partFilteredList;
-        FilteredList<Product> productFilteredList;
 
         // Populate Part TableView
         partIdColumn.setCellValueFactory(new PropertyValueFactory<>("id"));
@@ -72,6 +71,7 @@ public class MainScreen implements Initializable {
         // Implement search functionality for every time there's a new value in partSearchField
         partSearchField.textProperty().addListener(((observableValue, oldValue, newValue) -> {
             String searchText = newValue.toLowerCase();
+            // Checks if each item matches condition
             partFilteredList.setPredicate(item -> {
                 if (searchText.equals("")) {
                     return true;
@@ -81,11 +81,16 @@ public class MainScreen implements Initializable {
                 }
                 else return item.getName().toLowerCase().contains(searchText); // Returns false if not met
             });
+            if (partFilteredList.isEmpty() && !searchText.equals("")) {
+                Alert emptyAlert = new Alert(AlertType.WARNING, "No Parts found for the provided search criteria!");
+                emptyAlert.showAndWait();
+            }
         }));
 
         // Implement search functionality for every time there's a new value in productSearchField
         productSearchField.textProperty().addListener(((observableValue, oldValue, newValue) -> {
             String searchText = newValue.toLowerCase();
+            // Checks if each item matches condition
             productFilteredList.setPredicate(item -> {
                 if (searchText.equals("")) {
                     return true;
@@ -95,6 +100,11 @@ public class MainScreen implements Initializable {
                 }
                 else return item.getName().toLowerCase().contains(searchText); // Returns false if not met
             });
+            if (productFilteredList.isEmpty() && !searchText.equals("")) {
+                Alert emptyAlert = new Alert(AlertType.WARNING, "No Products were found for the provided " +
+                        "search criteria!");
+                emptyAlert.showAndWait();
+            }
         }));
     }
 
@@ -106,12 +116,16 @@ public class MainScreen implements Initializable {
     }
 
     public void partModifyButton(ActionEvent event) {
-        InventoryApplication.partToModify = partTable.getSelectionModel().getSelectedItem();
-        InventoryApplication.toScreen(event, InventoryApplication.ScreenType.MODIFY_PART);
+        if (partTable.getSelectionModel().getSelectedItem() != null) {
+            InventoryApplication.partToModify = partTable.getSelectionModel().getSelectedItem();
+            InventoryApplication.toScreen(event, InventoryApplication.ScreenType.MODIFY_PART);
+        }
     }
     public void productModifyButton(ActionEvent event) {
-        InventoryApplication.productToModify = productTable.getSelectionModel().getSelectedItem();
-        InventoryApplication.toScreen(event, InventoryApplication.ScreenType.MODIFY_PRODUCT);
+        if (productTable.getSelectionModel().getSelectedItem() != null) {
+            InventoryApplication.productToModify = productTable.getSelectionModel().getSelectedItem();
+            InventoryApplication.toScreen(event, InventoryApplication.ScreenType.MODIFY_PRODUCT);
+        }
     }
 
     public void partDeleteButton() {
@@ -119,24 +133,48 @@ public class MainScreen implements Initializable {
         Alert badDelete = new Alert(AlertType.ERROR,
                 "Unexpected error deleting this Part! Part does not exist in table.");
 
+        // Find if part is associated with any Products, to warn user in the confirmation
+        boolean foundDependency = false;
+        StringBuilder dependencyProducts = new StringBuilder();
+        for (Product product : Inventory.getAllProducts()) {
+            for (Part associatedPart : product.getAllAssociatedParts()) {
+                if (selectedPart == associatedPart) {
+                    dependencyProducts.append("ID: ").append(associatedPart.getId()).append(" - ")
+                            .append(associatedPart.getName()).append(" (is associated with) ")
+                            .append(product.getName()).append("\n");
+                    foundDependency = true;
+                }
+            }
+        }
+
         // Delete confirmation
-        Alert deleteConfirmation = new Alert(AlertType.CONFIRMATION,
-                "Are you sure you want to delete the \"" + selectedPart.getName() + "\" part? \n" +
-                        "This action is not reversible!");
+        String deleteString = "Are you sure you want to delete the \"" + selectedPart.getName() + "\" part? \n" +
+                "This action is not reversible!" +
+                (foundDependency ? "\n\nPart is associated with the following Products:\n" : "");
+        Alert deleteConfirmation = new Alert(AlertType.CONFIRMATION, deleteString + dependencyProducts);
         deleteConfirmation.showAndWait();
 
         // Check confirmation value and show error if Part isn't found
         if (deleteConfirmation.getResult().equals(ButtonType.OK)) {
             if (Inventory.deletePart(selectedPart)) {
                 System.out.println("Deleting Part: " + selectedPart.getName());
+                InventoryApplication.rectifyPartIds();
+                InventoryApplication.pendingParts.add(selectedPart);
             }
             else {
                 badDelete.showAndWait();
             }
         }
     }
-    public void productDeleteButton(ActionEvent event) {
+    public void productDeleteButton() {
         Product selectedProduct = productTable.getSelectionModel().getSelectedItem();
+        int partsAssociated = selectedProduct.getAllAssociatedParts().size();
+        if (partsAssociated > 0) {
+            new Alert(AlertType.INFORMATION, "This Product can not be deleted!\n\n" +
+                    partsAssociated + " parts are associated with it.\n\n" +
+                    "Please remove these associations if you want to delete the Product.").showAndWait();
+            return;
+        }
         Alert badDelete = new Alert(AlertType.ERROR,
                 "Unexpected error deleting this Product! Product does not exist in table.");
 
@@ -150,6 +188,7 @@ public class MainScreen implements Initializable {
         if (deleteConfirmation.getResult().equals(ButtonType.OK)) {
             if (Inventory.deleteProduct(selectedProduct)) {
                 System.out.println("Deleting Product: " + selectedProduct.getName());
+                InventoryApplication.rectifyProductIds();
             }
             else {
                 badDelete.showAndWait();

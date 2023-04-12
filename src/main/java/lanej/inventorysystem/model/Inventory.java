@@ -7,9 +7,9 @@ public class Inventory {
 
     // Here we will use observableArrayList(s) due to an assumption that in this company,
     // inventory objects are likely to be edited often as opposed to being added/removed.
-    // ObservableList(s) also implement listener methods for use in updating the list values.
-    private static ObservableList<Part> allParts = FXCollections.observableArrayList();
-    private static ObservableList<Product> allProducts = FXCollections.observableArrayList();
+    // ObservableList(s) also implement listener methods for use in updating the TableView list values.
+    private static final ObservableList<Part> allParts = FXCollections.observableArrayList();
+    private static final ObservableList<Product> allProducts = FXCollections.observableArrayList();
 
     public static void addPart(Part newPart) {
         allParts.add(newPart);

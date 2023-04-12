@@ -8,6 +8,9 @@ import javafx.scene.Parent;
 import javafx.scene.Scene;
 import javafx.scene.control.Alert;
 import javafx.scene.control.Alert.AlertType;
+import javafx.scene.control.ButtonType;
+import javafx.scene.image.Image;
+import javafx.stage.Screen;
 import javafx.stage.Stage;
 import lanej.inventorysystem.model.InHouse;
 import lanej.inventorysystem.model.Inventory;
@@ -19,7 +22,7 @@ import java.io.*;
 import java.util.*;
 
 public class InventoryApplication extends Application {
-    private static String dataFileName = "output.csv";
+    private static String dataFileName = "inventory-data.csv";
     public enum ScreenType {
         MAIN_SCREEN,
         ADD_PART,
@@ -29,6 +32,18 @@ public class InventoryApplication extends Application {
     }
     public static Part partToModify;
     public static Product productToModify;
+
+    // When a Part is deleted from Inventory, but is in a Product, it needs to be added to this list.
+    // I'm not planning to add support to store these "deleted" parts in the data .csv file associated with the
+    // application. Thus, I will have to prevent them from being written to the file, otherwise the Products'
+    // associated Parts will be misinterpreted and jumbled with different Parts than what is expected.
+    // I will send a Confirmation alert to the user whenever this happens, so they know they may need to remake the
+    // associated parts at a different time (if needed).
+    //
+    // I don't believe it's in scope of the assessment to support File insertion/output of all Inventory items.
+    // I decided to do it anyway (minus these Parts), because in reality, that would be necessary to make this
+    // software useful.
+    public static List<Part> pendingParts = new LinkedList<>();
 
     /*Running into an issue here. Although I believe I did everything right, I'm getting this error:
     *   "Exception in thread "JavaFX Application Thread"
@@ -41,11 +56,13 @@ public class InventoryApplication extends Application {
     * it will continue down the cases, executing those statements as well.
     */
     public static void toScreen(ActionEvent event, ScreenType type) {
-        // Default variable intiializing
-        String screenName = "";
-        String filePath = "";
-        double minWidth = 10.0;
-        double minHeight = 10.0;
+        // Default variable initializers
+        String screenName = null;
+        String filePath = null;
+        Double minWidth = null;
+        Double minHeight = null;
+        Double width = null;
+        Double height = null;
 
         switch (type) {
             case MAIN_SCREEN -> {
@@ -53,26 +70,40 @@ public class InventoryApplication extends Application {
                 filePath = "view/main-screen.fxml";
                 minWidth = 640.0;
                 minHeight = 300.0;
+                width = 1075.0;
+                height = 580.0;
             }
             case ADD_PART -> {
                 screenName = "Add Part";
                 filePath = "view/add-part.fxml";
-                minWidth = 360.0;
+                minWidth = 390.0;
                 minHeight = 550.0;
+                width = 460.0;
+                height = 600.0;
             }
             case MODIFY_PART -> {
                 screenName = "Modify Part";
                 filePath = "view/modify-part.fxml";
-                minWidth = 400.0;
-                minHeight = 400.0;
+                minWidth = 390.0;
+                minHeight = 550.0;
+                width = 460.0;
+                height = 600.0;
             }
             case ADD_PRODUCT -> {
                 screenName = "Add Product";
                 filePath = "view/add-product.fxml";
+                minWidth = 880.0;
+                minHeight = 450.0;
+                width = 1100.0;
+                height = 640.0;
             }
             case MODIFY_PRODUCT -> {
                 screenName = "Modify Product";
                 filePath = "view/modify-product.fxml";
+                minWidth = 880.0;
+                minHeight = 450.0;
+                width = 1100.0;
+                height = 640.0;
             }
         }
 
@@ -91,6 +122,16 @@ public class InventoryApplication extends Application {
             stage.setTitle(screenName);
             stage.setMinWidth(minWidth);
             stage.setMinHeight(minHeight);
+            stage.setWidth(width);
+            stage.setHeight(height);
+
+            // Check if window would be inaccessible if centered, add 50.0 to account for taskbar (although not exact)
+            if ((stage.getHeight() + 50.0) < Screen.getPrimary().getBounds().getHeight() &&
+                stage.getWidth() < Screen.getPrimary().getBounds().getWidth()) {
+                // Center the Stage on primary display
+                stage.setX((Screen.getPrimary().getBounds().getWidth() - stage.getWidth()) / 2.0);
+                stage.setY((Screen.getPrimary().getBounds().getHeight() - stage.getHeight()) / 2.0);
+            }
 
             // Change stage to the scene
             stage.setScene(scene);
@@ -105,6 +146,55 @@ public class InventoryApplication extends Application {
 
     public static void terminate(ActionEvent event) {
         Stage stage = (Stage) ((Node)event.getSource()).getScene().getWindow();
+
+        // Check if any Parts were deleted that were a part of a Product
+        if (pendingParts.size() > 0) {
+            StringBuilder alertMessage = new StringBuilder();
+            alertMessage.append("""
+                    Parts were deleted that were a part of one of more Products!
+                    These Parts won't be output to the data file, so make sure they aren't critical. If they are, \
+                    please create a new Part with identical information and add the association to the Product again.
+
+                    Parts that will be deleted:
+                    """);
+
+            for (Product product : Inventory.getAllProducts()) {
+                for (Part associatedPart : product.getAllAssociatedParts()) {
+                    if (pendingParts.contains(associatedPart)) {
+                        alertMessage.append("ID: ").append(associatedPart.getId()).append(" - ")
+                                .append(associatedPart.getName()).append(" (is associated with) ")
+                                .append(product.getName()).append("\n");
+                    }
+                }
+            }
+            alertMessage.append("\nPress OK to confirm Part deletion.");
+
+            Alert deleteConfirmation = new Alert(AlertType.CONFIRMATION, alertMessage.toString());
+            deleteConfirmation.showAndWait();
+
+            // Delete all associated parts that were in pendingParts
+            if (deleteConfirmation.getResult() == ButtonType.OK) {
+                for (Product product : Inventory.getAllProducts()) {
+                    List<Part> associatedParts = product.getAllAssociatedParts();
+                    // Can NOT use a "for each" loop due to the fact that we're attempting to delete the element
+                    // that would be accessed in the iterable
+                    for (int i = 0; i < associatedParts.size(); ++i) {
+                        if (pendingParts.contains(associatedParts.get(i))) {
+                            Part partToDelete = associatedParts.get(i);
+                            while (product.deleteAssociatedPart(partToDelete)) {
+                                // I'm using this empty while loop because the condition statement is what needs to be
+                                // repeated. This only needs to be repeated in the case that the Product has duplicate
+                                // deleted parts that were in pendingParts (unlikely, but I ran into it while testing).
+                            }
+                        }
+                    }
+                }
+            }
+            else {
+                return;
+            }
+        }
+
         try {
             System.out.println("\nAttempting to write to file!");
             writeFile();
@@ -405,9 +495,11 @@ public class InventoryApplication extends Application {
             Product newProduct = new Product(id, name, price, stock, min, max);
 
             String associatedParts = stringData.get(9);
-            String[] associatedStringIds = associatedParts.split("\\.");
-            for (String stringVal : associatedStringIds) {
-                newProduct.addAssociatedPart(Inventory.lookupPart(Integer.parseInt(stringVal)));
+            if (!associatedParts.equals("0")) {
+                String[] associatedStringIds = associatedParts.split("\\.");
+                for (String stringVal : associatedStringIds) {
+                    newProduct.addAssociatedPart(Inventory.lookupPart(Integer.parseInt(stringVal)));
+                }
             }
 
             Inventory.addProduct(newProduct);
@@ -452,23 +544,175 @@ public class InventoryApplication extends Application {
         }
     }
 
+    public static void rectifyPartIds() {
+        List<Part> partsList = Inventory.getAllParts();
+        if (partsList == null) {
+            return;
+        }
+        int maxId = partsList.get(0).getId();
+
+        // Make Parts and their IDs easily accessible
+        HashMap<Integer, Part> idsToParts = new HashMap<>();
+        for (Part currentPart : partsList) {
+            idsToParts.put(currentPart.getId(), currentPart);
+            if (currentPart.getId() > maxId) {
+                maxId = currentPart.getId();
+            }
+        }
+
+        // Loop idsToParts.size() times
+        for (int i = 1; i <= idsToParts.size(); ++i) {
+            // Check if IDs are not numbered naturally {1,2,3,..., idsToParts.size() - 1, idsToParts.size()}
+            if (!idsToParts.containsKey(i)) {
+                // Find the next Part with ascending ID (if IDs are {1,2,3,6,7} this will get the Part with ID 6)
+                Part partToChangeId = null;
+                for (int j = i; j <= maxId; ++j) {
+                    if (idsToParts.containsKey(j)) {
+                        partToChangeId = idsToParts.get(j);
+                        break;
+                    }
+                }
+                assert partToChangeId != null;
+                // Set ID to the naturally sequenced number (within the HashMap)
+                idsToParts.put(i, partToChangeId);
+                idsToParts.remove(partToChangeId.getId(), partToChangeId);
+            }
+        }
+
+        // Commit changes to Part IDs
+        for (Map.Entry<Integer, Part> mapItem : idsToParts.entrySet()) {
+            mapItem.getValue().setId(mapItem.getKey());
+        }
+    }
+
+    public static void rectifyProductIds() {
+        List<Product> productsList = Inventory.getAllProducts();
+        if (productsList == null) {
+            return;
+        }
+        int maxId = productsList.get(0).getId();
+
+        // Make Products and their IDs easily accessible
+        HashMap<Integer, Product> idsToProducts = new HashMap<>();
+        for (Product currentPart : productsList) {
+            idsToProducts.put(currentPart.getId(), currentPart);
+            if (currentPart.getId() > maxId) {
+                maxId = currentPart.getId();
+            }
+        }
+
+        // Loop idsToProducts.size() times
+        for (int i = 1; i <= idsToProducts.size(); ++i) {
+            // Check if IDs are not numbered naturally {1,2,3,..., idsToProducts.size() - 1, idsToProducts.size()}
+            if (!idsToProducts.containsKey(i)) {
+                // Find the next Part with ascending ID (if IDs are {1,2,3,6,7} this will get the Part with ID 6)
+                Product productToChangeId = null;
+                for (int j = i; j <= maxId; ++j) {
+                    if (idsToProducts.containsKey(j)) {
+                        productToChangeId = idsToProducts.get(j);
+                        break;
+                    }
+                }
+                assert productToChangeId != null;
+                // Set ID to the naturally sequenced number (within the HashMap)
+                idsToProducts.put(i, productToChangeId);
+                idsToProducts.remove(productToChangeId.getId(), productToChangeId);
+            }
+        }
+
+        // Commit changes to Product IDs
+        for (Map.Entry<Integer, Product> mapItem : idsToProducts.entrySet()) {
+            mapItem.getValue().setId(mapItem.getKey());
+        }
+    }
+
     @Override
     public void start(Stage stage) throws IOException {
-        // Import inventory data from previous usage
-        List<List<String>> fileStringData;
-        fileStringData = parseCsv(dataFileName);
+        // Make data file if not already present
+        File dataPresenceCheck = new File(dataFileName);
+        if (!dataPresenceCheck.createNewFile()) {
+            // Import inventory data from previous usage
+            List<List<String>> fileStringData;
+            fileStringData = parseCsv(dataFileName);
 
-        // Add all items from .csv to Inventory
-        importDataStrings(fileStringData);
+            // Add all items from .csv to Inventory
+            importDataStrings(fileStringData);
+        }
 
         // Initialize Starting Screen
         FXMLLoader fxmlLoader = new FXMLLoader(InventoryApplication.class.getResource("view/main-screen.fxml"));
         Scene scene = new Scene(fxmlLoader.load());
         stage.setTitle("Inventory Management");
         stage.setScene(scene);
-        stage.setMinHeight(300.0);
         stage.setMinWidth(640.0);
+        stage.setMinHeight(300.0);
+        stage.setWidth(1075.0);
+        stage.setHeight(580.0);
+        // Attribution not required, but sourced here: https://uxwing.com/product-delivery-tracking-icon/
+        Image iconImage = new Image(String.valueOf(InventoryApplication.class.getResource("icon.png")));
+        stage.getIcons().add(iconImage);
+
+        // Check if window would be inaccessible if centered, add 50.0 to account for taskbar (although not exact)
+        if ((stage.getHeight() + 50.0) < Screen.getPrimary().getBounds().getHeight() &&
+                stage.getWidth() < Screen.getPrimary().getBounds().getWidth()) {
+            // Center the Stage on primary display
+            stage.setX((Screen.getPrimary().getBounds().getWidth() - stage.getWidth()) / 2.0);
+            stage.setY((Screen.getPrimary().getBounds().getHeight() - stage.getHeight()) / 2.0);
+        }
+
+        // Write out data file if user exits by using the OS close button
         stage.setOnCloseRequest(closeEvent -> {
+            // Check if any Parts were deleted that were a part of a Product
+            if (pendingParts.size() > 0) {
+                StringBuilder alertMessage = new StringBuilder();
+                alertMessage.append("""
+                        Parts were deleted that were a part of one of more Products!
+                        These Parts won't be output to the data file, so make sure they aren't critical. If they are, \
+                        please create a new Part with identical information and add the association to the Product \
+                        again.
+
+                        Parts that will be deleted:
+                        """);
+
+                for (Product product : Inventory.getAllProducts()) {
+                    for (Part associatedPart : product.getAllAssociatedParts()) {
+                        if (pendingParts.contains(associatedPart)) {
+                            alertMessage.append("ID: ").append(associatedPart.getId()).append(" - ")
+                                    .append(associatedPart.getName()).append(" (is associated with) ")
+                                    .append(product.getName()).append("\n");
+                        }
+                    }
+                }
+                alertMessage.append("\nPress OK to confirm Part deletion.");
+
+                Alert deleteConfirmation = new Alert(AlertType.CONFIRMATION, alertMessage.toString());
+                deleteConfirmation.showAndWait();
+
+                // Delete all associated parts that were in pendingParts
+                if (deleteConfirmation.getResult() == ButtonType.OK) {
+                    for (Product product : Inventory.getAllProducts()) {
+                        List<Part> associatedParts = product.getAllAssociatedParts();
+                        // Can NOT use a "for each" loop due to the fact that we're attempting to delete the element
+                        // that would be accessed in the iterable
+                        for (int i = 0; i < associatedParts.size(); ++i) {
+                            if (pendingParts.contains(associatedParts.get(i))) {
+                                Part partToDelete = associatedParts.get(i);
+                                while (product.deleteAssociatedPart(partToDelete)) {
+                                    // I'm using this empty while loop because the condition statement is what needs
+                                    // to be repeated. This only needs to be repeated in the case that the Product has
+                                    // duplicate deleted parts that were in pendingParts (unlikely, but I ran into it
+                                    // while testing).
+                                }
+                            }
+                        }
+                    }
+                }
+                else {
+                    closeEvent.consume();
+                    return;
+                }
+            }
+
             try {
                 System.out.println("\nAttempting to write to file!");
                 writeFile();
