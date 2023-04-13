@@ -21,40 +21,121 @@ import lanej.inventorysystem.model.Part;
 import java.io.*;
 import java.util.*;
 
+/**
+ * FUTURE ENHANCEMENT
+ * The main class of the Inventory Management System application, responsible for launching the GUI and
+ * initializing the inventory. This class extends the JavaFX `Application` class and provides the necessary
+ * implementations for its methods. Javadoc files are provided in the top directory of this Project's file structure
+ * (in the javadoc/ directory).
+ * <p><b>FUTURE ENHANCEMENT information:</b></p>
+ * <p>
+ *     While I believe that normally, file input and output for storage of the data created by this application would be
+ *     a great addition to project, I already implemented this functionality. However, there is an improvement to the
+ *     File I/O that I believe would be beneficial to the end users of this application, and that is the storage of
+ *     Parts that are still associated with Products, but not in the Inventory anymore.
+ * </p>
+ * <p>
+ *     While this program will not immediately delete these "deleted" Parts from every Product that they were associated
+ *     with them, it put undue strain on the development of the CSV file writing/reading system I put in place. I would
+ *     have to reformat the way the CSV files store data in order to do this enhancement. To handle this situation right
+ *     now, I alert the user when they are attempting to exit the program that there are these pendingParts that will be
+ *     deleted if they do not recreate them.
+ * </p>
+ * <p>Two (2) <b>RUNTIME ERROR</b>s can be found in the lanej.inventorysystem.InventoryApplication Class.</p>
+ * <p>One (1) <b>LOGICAL ERROR</b> can be found in the lanej.inventorysystem.controller.ModifyPart Class.</p>
+ * <p>The <b>FUTURE ENHANCEMENT</b> can be found in the lanej.inventorysystem.InventoryApplication Class.</p>
+ * @author Jonathan Lane
+ * @see lanej.inventorysystem
+ */
 public class InventoryApplication extends Application {
+    /**
+     * This is the CSV file that the application takes data from, and writes to upon exiting. While the default value is
+     * "inventory-data.csv", a custom file name can be created or accessed by passing in the new file name String as an
+     * argument upon starting the program.
+     */
     private static String dataFileName = "inventory-data.csv";
+    /**
+     * A ScreenType enumeration is made for each scene that is made available in this program. These values support the
+     * toScreen(ActionEvent, ScreenType) method, as it provides a convenient method of checking the intended Stage
+     * attributes for each scene when "switching" to the next scene/screen.
+     */
     public enum ScreenType {
+        /** Indicates the intended screen/scene to be switched to is the Main Screen. */
         MAIN_SCREEN,
+        /** Indicates the intended screen/scene to be switched to is the screen for adding Parts. */
         ADD_PART,
+        /** Indicates the intended screen/scene to be switched to is the screen for modifying Parts. */
         MODIFY_PART,
+        /** Indicates the intended screen/scene to be switched to is the screen for adding Products. */
         ADD_PRODUCT,
+        /** Indicates the intended screen/scene to be switched to is the screen for modifying Products. */
         MODIFY_PRODUCT
     }
+    /**
+     * Static variable that is generally set to null, except for when the "Modify" buttons are pressed on the Part
+     * table. This temporarily holds the Part that the user wants to modify, so that the ModifyPart controller can
+     * access the intended Part to modify.
+     * @see lanej.inventorysystem.controller.ModifyPart
+     */
     public static Part partToModify;
+    /**
+     * This static variable is generally set to null, except for when the "Modify" buttons are pressed on the Product
+     * table. This temporarily holds the Product that the user wants to modify, so that the ModifyProduct controller can
+     * access the intended Product to modify.
+     * @see lanej.inventorysystem.controller.ModifyProduct
+     */
     public static Product productToModify;
 
-    // When a Part is deleted from Inventory, but is in a Product, it needs to be added to this list.
-    // I'm not planning to add support to store these "deleted" parts in the data .csv file associated with the
-    // application. Thus, I will have to prevent them from being written to the file, otherwise the Products'
-    // associated Parts will be misinterpreted and jumbled with different Parts than what is expected.
-    // I will send a Confirmation alert to the user whenever this happens, so they know they may need to remake the
-    // associated parts at a different time (if needed).
-    //
-    // I don't believe it's in scope of the assessment to support File insertion/output of all Inventory items.
-    // I decided to do it anyway (minus these Parts), because in reality, that would be necessary to make this
-    // software useful.
+    /**
+     * This static List variable holds all the Parts that have been deleted, but remain a part of at least one Product.
+     * When a Part is deleted from Inventory, but is in a Product, it needs to be added to this list.
+     * <p>I'm not planning to add support to store these "deleted" parts in the data .csv file associated with the
+     * application. Thus, I will have to prevent them from being written to the file, otherwise the Products'
+     * associated Parts will be misinterpreted and jumbled with different Parts than what is expected.</p>
+     * <p>A Confirmation alert is sent to the user whenever they try to exit the program and the size of this is greater
+     * than 0, so they know they may need to remake the associated parts at a different time (if needed).
+     * I don't believe it's in scope of the assessment to support File insertion/output of all Inventory items.
+     * I decided to do it anyway (minus these Parts), because in reality, that would be necessary to make this
+     * software useful.</p>
+     */
     public static List<Part> pendingParts = new LinkedList<>();
 
-    /*Running into an issue here. Although I believe I did everything right, I'm getting this error:
-    *   "Exception in thread "JavaFX Application Thread"
-    *    java.lang.RuntimeException: java.lang.reflect.InvocationTargetException"
-    * This is when I'm testing the method using the call from the addPartButton(ActionEvent, ScreenType)
-    * method in MainScreen.java.
-    * I believe the ScreenType is passed and behaves with the switch properly (I tested this by adding a
-    * System.out.println() statement to the ADD_PART case code block).
-    * I found the issue to be me implementing the switch incorrectly. I forgot that if you don't use break statements,
-    * it will continue down the cases, executing those statements as well.
-    */
+    /**
+     * RUNTIME ERROR
+     * Intended to be called by the action handler of the user clicking a button, which is intended to
+     * take the user to a separate screen (scene). Prevents redundant code by assigning stage parameters based on
+     * ScreenType enumeration.
+     * <p><b>RUNTIME ERROR Information:</b></p>
+     * <p>
+     *     Ran into an issue here. Although I believed I did everything right, I got this error whenever calling the
+     *     method:
+ *   * </p>
+     * <pre>
+     *     {@code
+     *         Exception in thread "JavaFX Application Thread"
+     *         java.lang.RuntimeException: java.lang.reflect.InvocationTargetException
+     *     }
+     * </pre>
+     * <p>
+     *     This was when I was testing the method using the call from the addPartButton(ActionEvent, ScreenType) method
+     *     in lanej.inventorysystem.controller.MainScreen.
+     * </p>
+     * <p>
+     *     I believed the ScreenType is passed and behaves with the switch properly (I tested this by adding a
+     *     System.out.println() statement to the ADD_PART case code block), although I should have added print
+     *     statements to the other blocks.
+     * </p>
+     * <p>
+     *     I found the issue to be me implementing the switch incorrectly. I forgot that if you don't use break
+     *     statements, it will continue down the cases, executing those statements as well. This was solved by me
+     *     instead using an "enhanced" switch block, which uses the "->" operator, and doesn't go down the other cases.
+     * </p>
+     * @param event The GUI ActionEvent that activates the method call. Used to determine the Stage containing the
+     *              previous screen.
+     * @param type ScreenType enumeration that specifies the scene to be switched to. Determines the stage properties to
+     *             be set.
+     * @see lanej.inventorysystem.InventoryApplication.ScreenType
+     */
     public static void toScreen(ActionEvent event, ScreenType type) {
         // Default variable initializers
         String screenName = null;
@@ -144,6 +225,17 @@ public class InventoryApplication extends Application {
         }
     }
 
+    /**
+     * Used to simplify closing the program, while being able to write other code that is needed to be executed
+     * before program stops. This method first checks if any Parts are in the static List member pendingParts. If so,
+     * it will check to see if there are any Products containing those parts, and warn the user of the occurrence before
+     * deleting them entirely.
+     * The method will then call the writeFile() method, which will write out all the inventory data to a CSV file
+     * specified by dataFileName.
+     * The method will then close the application.
+     * @param event The GUI ActionEvent that activates the method call. Used to determine the Stage containing the
+     *              event source.
+     */
     public static void terminate(ActionEvent event) {
         Stage stage = (Stage) ((Node)event.getSource()).getScene().getWindow();
 
@@ -208,10 +300,17 @@ public class InventoryApplication extends Application {
         stage.close();
     }
 
-    public static List<List<String>> parseCsv(String resourceFilePath) {
+    /**
+     * Used to abstract the data importing process, which takes information from a CSV file specified by
+     * dataFileName and populates Inventory with all the Parts and Products within. This method specifically takes all
+     * the text lines from the CSV file, and separates String values on each line by the comma (",") delimiter.
+     * @param filePath The file to be parsed
+     * @return A List of Listed String values, similar to tabular data
+     */
+    public static List<List<String>> parseCsv(String filePath) {
         List<List<String>> foundRecords = new ArrayList<>();
         try {
-            File csvFile = new File(resourceFilePath);
+            File csvFile = new File(filePath);
             BufferedReader br = new BufferedReader(new FileReader(csvFile));
             String currLine;
             while ((currLine = br.readLine()) != null) {
@@ -228,7 +327,7 @@ public class InventoryApplication extends Application {
             System.err.println("Error when attempting to find file: ");
             e.printStackTrace();
             Alert alert = new Alert(AlertType.ERROR,
-                    "Error when attempting to find " + resourceFilePath + " file!\n" +
+                    "Error when attempting to find " + filePath + " file!\n" +
                     "Make sure the file is in the directory: src/main/java/lanej/resources/inventorysystem/" +
                     "\n\nMessage: \n" + e.getMessage());
             alert.showAndWait();
@@ -237,12 +336,18 @@ public class InventoryApplication extends Application {
             System.err.println("Error when attempting to read file: ");
             e.printStackTrace();
             Alert alert = new Alert(AlertType.ERROR,
-                    "Error when attempting to read " + resourceFilePath + "!\n\nMessage: \n" + e.getMessage());
+                    "Error when attempting to read " + filePath + "!\n\nMessage: \n" + e.getMessage());
             alert.showAndWait();
         }
         return foundRecords;
     }
 
+    /**
+     * Writes Inventory to the CSV file as specified by dataFileName. Used when closing the application, and is called
+     * by the terminate() method, as well as the stage onCloseRequest handler.
+     * @throws IOException if there is an error writing to the file specified
+     * @throws Exception if there is an unexpected error not related to the file writing process
+     */
     public static void writeFile() throws Exception {
         List<Part> allParts = Inventory.getAllParts();
         List<Product> allProducts = Inventory.getAllProducts();
@@ -331,27 +436,42 @@ public class InventoryApplication extends Application {
         }
     }
 
-    /*
-    * Ran into an issue with this code. When making the sample data, I used Microsoft Excel to format the csv file.
-    * When attempting to test the data for equality with List<String> validHeaders, it would never return the expected
-    * equality value, even though I copy and pasted the content into the Strings that were added to validHeaders.
-    *
-    * I first tried to use different comparison algorithms, printing the equality (boolean) value to the console.
-    * They all returned the same result, displaying something along the lines of:
-    *       "Content equality: false"
-    *       "ProductOrPart does not equal ﻿ProductOrPart"
-    * (I had it print the first element that didn't match).
-    *
-    * I then tried reversing the equality check. I wanted to see the first element that WAS equal. The print statement
-    * exposed that the SECOND element was indeed equal, just not the first. This makes sense with what I found to be
-    * the root causing issue.
-    *
-    * As evident here, the last word of the print statement above contains an "illegal character". This is according to
-    * the IDE I'm using (it was not seen visually in the console output). After a lot of troubleshooting and
-    * brainstorming, I discovered that it was indeed importing the data from the .csv file correctly, however,
-    * that first character is header data from MS Excel. It doesn't match UTF-8 encoding, so filtering the data
-    * in parseCsv() to only include the UTF-8 character set fixed this issue.
-    * */
+    /**
+     * RUNTIME ERROR
+     * Responsible for importing Inventory data that is originally stored as a List of String Lists into the appropriate
+     * Inventory items. Uses the output of parseCsv(), and is intended to be called at the beginning of the application.
+     *  <p><b>RUNTIME ERROR Information:</b></p>
+     *  <p>
+     *      Ran into an issue with this code. When making the sample data, I used Microsoft Excel to format the csv
+     *      file. When attempting to test the data for equality with a List of validHeaders (String literals that
+     *      indicate valid CSV file data), it would never return the expected equality value, even though I copy and
+     *      pasted the content into the String literals that were added to validHeaders. I first tried to use different
+     *      comparison algorithms, printing the equality (boolean) value to the console. They all returned the same
+     *      result, displaying something along the lines of:
+     *  </p>
+     *  <pre>
+     *     {@code
+     *         Content equality: false
+     *         ProductOrPart does not equal ﻿ProductOrPart
+     *     }
+     * </pre>
+     * <p>
+     *     (I had it print the first element that didn't match).
+     * </p>
+     * <p>
+     *     I then tried reversing the equality check. I wanted to see the first element that WAS equal. The print
+     *     statement exposed that the SECOND element was indeed equal, just not the first. This makes sense with what I
+     *     found to be the root causing issue.
+     * </p>
+     * <p>
+     *     As evident here, the last word of the print statement above contains an "illegal character". This is
+     *     according to the IDE I'm using (it was not seen visually in the console output). After a lot of
+     *     troubleshooting and brainstorming, I discovered that it was indeed importing the data from the .csv file
+     *     correctly, however, that first character is header data from MS Excel. It doesn't match UTF-8 encoding, so
+     *     filtering the data in parseCsv() to only include the UTF-8 character set fixed this issue.
+     * </p>
+     * @param dataTable Tabular String data from parseCsv()
+     */
     public static void importDataStrings(List<List<String>> dataTable) {
         List<String> dataHeader = dataTable.get(0);
         List<String> validDataHeader = new ArrayList<>(List.of(new String[]{
@@ -506,6 +626,11 @@ public class InventoryApplication extends Application {
         }
     }
 
+    /**
+     * Convenient method to calculate the next available Part ID. Primarily used when creating new Parts that will be
+     * added to Inventory.
+     * @return The next available positive Part ID
+     */
     public static int nextPartId() {
         List<Part> partsList = Inventory.getAllParts();
         List<Integer> idsUsed = new LinkedList<>();
@@ -525,6 +650,11 @@ public class InventoryApplication extends Application {
         }
     }
 
+    /**
+     * Convenient method to calculate the next available Product ID. Primarily used when creating new Product that will
+     * be added to Inventory.
+     * @return The next available positive Product ID
+     */
     public static int nextProductId() {
         List<Product> productsList = Inventory.getAllProducts();
         List<Integer> idsUsed = new LinkedList<>();
@@ -544,6 +674,11 @@ public class InventoryApplication extends Application {
         }
     }
 
+    /**
+     * Naturalizes all IDs of Parts added to the Inventory class. For example, if there is a gap in the list of IDs, it
+     * will move all the higher IDs back to fill that ID spot. This ensures that the Part IDs are consistently sequenced
+     * and numbered properly. This is primarily useful when deleting Parts.
+     */
     public static void rectifyPartIds() {
         List<Part> partsList = Inventory.getAllParts();
         if (partsList == null) {
@@ -585,6 +720,11 @@ public class InventoryApplication extends Application {
         }
     }
 
+    /**
+     * Naturalizes all IDs of Products added to the Inventory class. For example, if there is a gap in the list of IDs,
+     * it will move all the higher IDs back to fill that ID spot. This ensures that the Product IDs are consistently
+     * sequenced and numbered properly. This is primarily useful when deleting Products.
+     */
     public static void rectifyProductIds() {
         List<Product> productsList = Inventory.getAllProducts();
         if (productsList == null) {
@@ -626,6 +766,18 @@ public class InventoryApplication extends Application {
         }
     }
 
+    /**
+     * This method is called when the application is launched, and is responsible for initializing
+     * the main window (stage) and showing it to the user. During this, it will check if there is a data file already
+     * created with the specified dataFileName. If the file doesn't exist, it will create one. If it does, then it will
+     * use parseCsv() and importDataStrings() to import the data from that file. Because in this program, we need to
+     * perform operations when the program closes (such as checking for pendingParts, and writing to the output data
+     * file), included here is also the stage's close request handler implemented as a lambda. This handler has much of
+     * the same functionality as the terminate() method, however it has slightly varying requirements and operations, so
+     * I opted to just copy and paste most of the code between the two.
+     * @param stage the primary stage for this application, onto which the application scene can be set
+     * @throws IOException if the application fails to load the FXML file or other resources
+     */
     @Override
     public void start(Stage stage) throws IOException {
         // Make data file if not already present
@@ -727,6 +879,12 @@ public class InventoryApplication extends Application {
         stage.show();
     }
 
+    /**
+     * The first method that runs at the beginning of the application. If a command-line argument is provided,
+     * it will be used as the data file name. Otherwise, the default data file name will be used. Javadoc files are
+     * provided in the top directory of this Project's file structure (in the javadoc/ directory).
+     * @param args the command-line arguments, only using the first value as input for dataFileName
+     */
     public static void main(String[] args) {
         if (args.length > 0) {
             dataFileName = args[0];

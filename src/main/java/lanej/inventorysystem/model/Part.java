@@ -5,8 +5,12 @@ package lanej.inventorysystem.model;
  */
 
 /**
- *
+ * The Part class represents an item that can be associated with various Products. The class is abstract, as it is not
+ * intended to be able to be instantiated itself. This is the parent class of InHouse and Outsourced, both of which may
+ * be instantiated.
  * @author Jonathan Lane
+ * @see lanej.inventorysystem.model.InHouse
+ * @see lanej.inventorysystem.model.Outsourced
  */
 public abstract class Part {
     private int id;

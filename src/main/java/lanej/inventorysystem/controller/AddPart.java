@@ -12,29 +12,72 @@ import lanej.inventorysystem.model.Outsourced;
 import java.net.URL;
 import java.util.ResourceBundle;
 
+/**
+ * The AddPart class is responsible for managing the user interface and functionality of the Add Part
+ * screen in the inventory management system. This class implements the Initializable interface from the JavaFX API.
+ * It contains radio buttons (for selecting the Part type), text fields, and buttons for modifying the details of an
+ * existing Part. The class allows users to save the Part's details to Inventory, or cancel, returning to the Main
+ * Screen without returning anything.
+ * @author Jonathan Lane
+ */
 public class AddPart implements Initializable {
+    /** This RadioButton allows the user to specify that the Part they're adding should be an InHouse Part. */
     public RadioButton inHouseRadio;
+    /** This RadioButton allows the user to specify that the Part they're adding should be an Outsourced Part. */
     public RadioButton outsourcedRadio;
-    public ToggleGroup partSourceSelection;
+    /** Displays the Part's ID, which is automatically generated, and not editable */
     public TextField idField;
-    public TextField maxField;
-    public TextField minField;
+    /** Displays the Part's name, editable by the user */
     public TextField nameField;
+    /** Displays the Product's stock, editable by the user */
     public TextField inventoryField;
+    /** Displays the Part's price, editable by the user */
     public TextField priceField;
-    public TextField sourceField;
+    /** Displays the Part's maximum stock, editable by the user */
+    public TextField maxField;
+    /** Displays the Part's minimum stock, editable by the user */
+    public TextField minField;
+    /**
+     * Labels the Parts source. This can either be "Machine ID" if it's an InHouse Part, or "Company Name" if it's an
+     * Outsourced Part.
+     */
     public Label sourceLabel;
+    /**
+     * Displays the Parts source. This can either be an InHouse Part's Machine's ID, or and Outsourced Part's Company
+     * Name.
+     */
+    public TextField sourceField;
 
+    /**
+     * This method is called by the FXMLLoader when the add-part.fxml file is loaded. It sets the initial values
+     * for the ID field, which includes the next available Part ID, and " - Generated" after it.
+     * @param url The URL used to initialize the controller.
+     * @param resourceBundle The ResourceBundle used to initialize the controller.
+     */
     @Override
     public void initialize(URL url, ResourceBundle resourceBundle) {
         System.out.println("AddPart Controller Initialized");
         idField.setText("" + InventoryApplication.nextPartId() + " – Generated");
     }
 
+    /**
+     * This method is called whenever the user clicks the "Cancel" button. It simply directs the user back to the Main
+     * Screen, without saving any info that may have been created in the other actions of the scene.
+     * @param event The ActionEvent that is created from the Cancel button within the scene
+     */
     public void cancelButton(ActionEvent event) {
         InventoryApplication.toScreen(event, InventoryApplication.ScreenType.MAIN_SCREEN);
     }
 
+    /**
+     * This method is called whenever the user clicks the "Save" button. There exist many try and catch blocks within
+     * this method due to the need to check and notify the user of exactly what is wrong with their input, if anything.
+     * Ultimately, this method attempts to obtain the user input for all the editable TextFields within this screen, and
+     * parse that information into the data for the creation of a new Part (that is then added to Inventory).
+     * All information for the Part is sourced from the TextFields except for the ID, which is obtained from
+     * InventoryApplication.nextPartId(). After creating the Part, it will direct the user back to the Main Screen.
+     * @param event The ActionEvent that is created from the Save button within the scene
+     */
     public void saveButtonClicked(ActionEvent event) {
         try {
             String name = nameField.getText();
@@ -110,10 +153,12 @@ public class AddPart implements Initializable {
         InventoryApplication.toScreen(event, InventoryApplication.ScreenType.MAIN_SCREEN);
     }
 
+    /** This method is called when the inHouseRadio button is clicked, and it sets the sourceLabel to "Machine ID". */
     public void inHouseClicked() {
         sourceLabel.setText("Machine ID");
     }
 
+    /** This method is called when the Outsourced button is clicked, and it sets the sourceLabel to "Company Name". */
     public void outsourcedClicked() {
         sourceLabel.setText("Company Name");
     }
